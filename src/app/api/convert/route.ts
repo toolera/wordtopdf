@@ -162,7 +162,18 @@ export async function POST(request: NextRequest) {
       return result;
     };
     
-    const lines = sanitizeText(text).split('\n');
+    const sanitizedText = sanitizeText(text);
+    
+    // EXTRA DEBUG: Check the sanitized text for any remaining issues
+    console.log('Checking sanitized text for issues...');
+    for (let i = 0; i < Math.min(100, sanitizedText.length); i++) {
+      const code = sanitizedText.charCodeAt(i);
+      if (code > 255) {
+        console.error(`STILL PROBLEMATIC at index ${i}: ${sanitizedText[i]} (${code})`);
+      }
+    }
+    
+    const lines = sanitizedText.split('\n');
     
     for (const line of lines) {
       if (yPosition < margin + lineHeight) {
@@ -174,7 +185,9 @@ export async function POST(request: NextRequest) {
       let currentLine = '';
       
       for (const word of words) {
-        const testLine = currentLine + (currentLine ? ' ' : '') + word;
+        // Extra sanitization right before use
+        const cleanWord = word.split('').map(c => c.charCodeAt(0) > 255 ? '?' : c).join('');
+        const testLine = currentLine + (currentLine ? ' ' : '') + cleanWord;
         
         try {
           const textWidth = font.widthOfTextAtSize(testLine, fontSize);
@@ -189,7 +202,7 @@ export async function POST(request: NextRequest) {
             });
             
             yPosition -= lineHeight;
-            currentLine = word;
+            currentLine = cleanWord;
             
             if (yPosition < margin + lineHeight) {
               page = pdfDoc.addPage();
@@ -200,14 +213,16 @@ export async function POST(request: NextRequest) {
           }
         } catch (encodingError) {
           // If there's still an encoding error, skip this word
-          console.warn('Encoding error for word:', word, encodingError instanceof Error ? encodingError.message : 'Unknown encoding error');
+          console.warn('Encoding error for word:', cleanWord, encodingError instanceof Error ? encodingError.message : 'Unknown encoding error');
           continue;
         }
       }
       
       if (currentLine) {
+        // Final sanitization before drawing
+        const finalLine = currentLine.split('').map(c => c.charCodeAt(0) > 255 ? '?' : c).join('');
         try {
-          page.drawText(currentLine, {
+          page.drawText(finalLine, {
             x: margin,
             y: yPosition,
             size: fontSize,
@@ -217,7 +232,7 @@ export async function POST(request: NextRequest) {
           
           yPosition -= lineHeight;
         } catch (encodingError) {
-          console.warn('Encoding error for line:', currentLine, encodingError instanceof Error ? encodingError.message : 'Unknown encoding error');
+          console.warn('Encoding error for line:', finalLine, encodingError instanceof Error ? encodingError.message : 'Unknown encoding error');
         }
       }
     }
