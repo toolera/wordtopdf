@@ -47,86 +47,83 @@ export async function POST(request: NextRequest) {
         console.log('Found problematic characters:', problematicChars.slice(0, 10)); // Log first 10
       }
 
-      // Apply all character replacements
-      let result = text
-        // Turkish characters
-        .replace(/İ/g, 'I').replace(/ı/g, 'i')
-        .replace(/Ş/g, 'S').replace(/ş/g, 's')
-        .replace(/Ğ/g, 'G').replace(/ğ/g, 'g')
-        .replace(/Ü/g, 'U').replace(/ü/g, 'u')
-        .replace(/Ö/g, 'O').replace(/ö/g, 'o')
-        .replace(/Ç/g, 'C').replace(/ç/g, 'c')
-        // Azerbaijani characters
-        .replace(/Ə/g, 'E').replace(/ə/g, 'e')
-        // Smart quotes and typography
-        .replace(/[""„‚]/g, '"')
-        .replace(/[''‚']/g, "'")
-        .replace(/[—–−]/g, '-')
-        .replace(/[…]/g, '...')
-        // Currency and symbols
-        .replace(/[€₺£¥¢]/g, '$')
-        .replace(/[™®©]/g, '')
-        // Mathematical symbols
-        .replace(/[×]/g, 'x')
-        .replace(/[÷]/g, '/')
-        .replace(/[±]/g, '+/-')
-        .replace(/[≤]/g, '<=')
-        .replace(/[≥]/g, '>=')
-        .replace(/[≠]/g, '!=')
-        // Common accented characters
-        .replace(/[ÀÁÂÃÄÅ]/g, 'A').replace(/[àáâãäå]/g, 'a')
-        .replace(/[ÈÉÊË]/g, 'E').replace(/[èéêë]/g, 'e')
-        .replace(/[ÌÍÎÏ]/g, 'I').replace(/[ìíîï]/g, 'i')
-        .replace(/[ÒÓÔÕÖ]/g, 'O').replace(/[òóôõö]/g, 'o')
-        .replace(/[ÙÚÛÜ]/g, 'U').replace(/[ùúûü]/g, 'u')
-        .replace(/[ÝŸ]/g, 'Y').replace(/[ýÿ]/g, 'y')
-        .replace(/[Ñ]/g, 'N').replace(/[ñ]/g, 'n')
-        // Germanic characters
-        .replace(/[ß]/g, 'ss')
-        .replace(/[Æ]/g, 'AE').replace(/[æ]/g, 'ae')
-        .replace(/[Ø]/g, 'O').replace(/[ø]/g, 'o')
-        // More comprehensive cleanup
-        .normalize('NFD') // Decompose combined characters
-        .replace(/[\u0300-\u036f]/g, '') // Remove combining diacritical marks
-        .normalize('NFC'); // Recompose
-
-      // FINAL SAFETY: Replace ANY character > 255 with ASCII equivalent or ?
+      // BRUTE FORCE: Convert every character individually to ensure no >255 chars pass
+      let result = '';
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const code = char.charCodeAt(0);
+        
+        if (code <= 255) {
+          result += char;
+          continue;
+        }
+        
+        // Direct character mapping - covers all problem characters we've seen
+        switch (char) {
+          // Turkish
+          case 'İ': result += 'I'; break;
+          case 'ı': result += 'i'; break;
+          case 'Ş': result += 'S'; break;
+          case 'ş': result += 's'; break;
+          case 'Ğ': result += 'G'; break;
+          case 'ğ': result += 'g'; break;
+          case 'Ü': result += 'U'; break;
+          case 'ü': result += 'u'; break;
+          case 'Ö': result += 'O'; break;
+          case 'ö': result += 'o'; break;
+          case 'Ç': result += 'C'; break;
+          case 'ç': result += 'c'; break;
+          // Azerbaijani
+          case 'Ə': result += 'E'; break;
+          case 'ə': result += 'e'; break;
+          // Common accented
+          case 'À': case 'Á': case 'Â': case 'Ã': case 'Ä': case 'Å': result += 'A'; break;
+          case 'à': case 'á': case 'â': case 'ã': case 'ä': case 'å': result += 'a'; break;
+          case 'È': case 'É': case 'Ê': case 'Ë': result += 'E'; break;
+          case 'è': case 'é': case 'ê': case 'ë': result += 'e'; break;
+          case 'Ì': case 'Í': case 'Î': case 'Ï': result += 'I'; break;
+          case 'ì': case 'í': case 'î': case 'ï': result += 'i'; break;
+          case 'Ò': case 'Ó': case 'Ô': case 'Õ': result += 'O'; break;
+          case 'ò': case 'ó': case 'ô': case 'õ': result += 'o'; break;
+          case 'Ù': case 'Ú': case 'Û': result += 'U'; break;
+          case 'ù': case 'ú': case 'û': result += 'u'; break;
+          case 'Ý': case 'Ÿ': result += 'Y'; break;
+          case 'ý': case 'ÿ': result += 'y'; break;
+          case 'Ñ': result += 'N'; break;
+          case 'ñ': result += 'n'; break;
+          // Smart quotes
+          case '\u201C': case '\u201D': case '\u201E': case '\u201A': result += '"'; break;
+          case '\u2018': case '\u2019': case '\u201A': case '\u2019': result += "'"; break;
+          // Dashes
+          case '\u2014': case '\u2013': case '\u2212': result += '-'; break;
+          case '\u2026': result += '...'; break;
+          // Math symbols
+          case '\u00D7': result += 'x'; break;
+          case '\u00F7': result += '/'; break;
+          case '\u00B1': result += '+/-'; break;
+          case '\u2264': result += '<='; break;
+          case '\u2265': result += '>='; break;
+          case '\u2260': result += '!='; break;
+          // Currency
+          case '\u20AC': case '\u20BA': case '\u00A3': case '\u00A5': case '\u00A2': result += '$'; break;
+          // Symbols to remove
+          case '\u2122': case '\u00AE': case '\u00A9': result += ''; break;
+          // Germanic
+          case 'ß': result += 'ss'; break;
+          case 'Æ': result += 'AE'; break;
+          case 'æ': result += 'ae'; break;
+          case 'Ø': result += 'O'; break;
+          case 'ø': result += 'o'; break;
+          default: 
+            // Log unknown character for debugging
+            console.warn(`Unknown character: ${char} (code: ${code})`);
+            result += '?'; 
+            break;
+        }
+      }
+      
+      // Clean up
       result = result
-        .split('')
-        .map(char => {
-          const code = char.charCodeAt(0);
-          if (code <= 255) {
-            return char;
-          }
-          // Try to find ASCII equivalent for common characters
-          if (code >= 0x0100 && code <= 0x017F) { // Latin Extended-A
-            const latinMap: {[key: string]: string} = {
-              'Ā': 'A', 'ā': 'a', 'Ă': 'A', 'ă': 'a', 'Ą': 'A', 'ą': 'a',
-              'Ć': 'C', 'ć': 'c', 'Ĉ': 'C', 'ĉ': 'c', 'Ċ': 'C', 'ċ': 'c', 'Č': 'C', 'č': 'c',
-              'Ď': 'D', 'ď': 'd', 'Đ': 'D', 'đ': 'd',
-              'Ē': 'E', 'ē': 'e', 'Ĕ': 'E', 'ĕ': 'e', 'Ė': 'E', 'ė': 'e', 'Ę': 'E', 'ę': 'e', 'Ě': 'E', 'ě': 'e',
-              'Ĝ': 'G', 'ĝ': 'g', 'Ğ': 'G', 'ğ': 'g', 'Ġ': 'G', 'ġ': 'g', 'Ģ': 'G', 'ģ': 'g',
-              'Ĥ': 'H', 'ĥ': 'h', 'Ħ': 'H', 'ħ': 'h',
-              'Ĩ': 'I', 'ĩ': 'i', 'Ī': 'I', 'ī': 'i', 'Ĭ': 'I', 'ĭ': 'i', 'Į': 'I', 'į': 'i', 'İ': 'I', 'ı': 'i',
-              'Ĵ': 'J', 'ĵ': 'j',
-              'Ķ': 'K', 'ķ': 'k',
-              'Ĺ': 'L', 'ĺ': 'l', 'Ļ': 'L', 'ļ': 'l', 'Ľ': 'L', 'ľ': 'l', 'Ŀ': 'L', 'ŀ': 'l', 'Ł': 'L', 'ł': 'l',
-              'Ń': 'N', 'ń': 'n', 'Ņ': 'N', 'ņ': 'n', 'Ň': 'N', 'ň': 'n',
-              'Ō': 'O', 'ō': 'o', 'Ŏ': 'O', 'ŏ': 'o', 'Ő': 'O', 'ő': 'o',
-              'Ŕ': 'R', 'ŕ': 'r', 'Ŗ': 'R', 'ŗ': 'r', 'Ř': 'R', 'ř': 'r',
-              'Ś': 'S', 'ś': 's', 'Ŝ': 'S', 'ŝ': 's', 'Ş': 'S', 'ş': 's', 'Š': 'S', 'š': 's',
-              'Ţ': 'T', 'ţ': 't', 'Ť': 'T', 'ť': 't', 'Ŧ': 'T', 'ŧ': 't',
-              'Ũ': 'U', 'ũ': 'u', 'Ū': 'U', 'ū': 'u', 'Ŭ': 'U', 'ŭ': 'u', 'Ů': 'U', 'ů': 'u', 'Ű': 'U', 'ű': 'u', 'Ų': 'U', 'ų': 'u',
-              'Ŵ': 'W', 'ŵ': 'w',
-              'Ŷ': 'Y', 'ŷ': 'y', 'Ÿ': 'Y',
-              'Ź': 'Z', 'ź': 'z', 'Ż': 'Z', 'ż': 'z', 'Ž': 'Z', 'ž': 'z'
-            };
-            return latinMap[char] || '?';
-          }
-          return '?';
-        })
-        .join('')
-        // Clean up
         .replace(/\?+/g, '?')
         .replace(/  +/g, ' ')
         .trim();
