@@ -22,7 +22,15 @@ export async function POST(request: NextRequest) {
     const text = result.value;
 
     const pdfDoc = await PDFDocument.create();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    
+    // Try using TimesRoman which might handle characters better
+    let font;
+    try {
+      font = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+    } catch (error) {
+      console.warn('TimesRoman failed, falling back to Helvetica');
+      font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    }
     
     const fontSize = 12;
     const margin = 50;
@@ -125,9 +133,15 @@ export async function POST(request: NextRequest) {
           case 'Ø': result += 'O'; break;
           case 'ø': result += 'o'; break;
           default: 
-            // Log unknown character for debugging
-            console.warn(`Unknown character: ${char} (code: ${code})`);
-            result += '?'; 
+            // Handle the mysterious 775 character and others
+            if (code === 775) {
+              console.warn(`Found the mysterious 775 character: ${char}`);
+              result += '?';
+            } else {
+              // Log unknown character for debugging
+              console.warn(`Unknown character: ${char} (code: ${code})`);
+              result += '?';
+            }
             break;
         }
       }
@@ -196,8 +210,19 @@ export async function POST(request: NextRequest) {
     }
     
     const lines = sanitizedText.split('\n');
+    console.log('Processing', lines.length, 'lines');
     
-    for (const line of lines) {
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex];
+      
+      // DEBUG: Check each line for issues
+      for (let i = 0; i < line.length; i++) {
+        const code = line.charCodeAt(i);
+        if (code > 255) {
+          console.error(`Line ${lineIndex} has problematic char at index ${i}: '${line[i]}' (${code})`);
+        }
+      }
+      
       if (yPosition < margin + lineHeight) {
         page = pdfDoc.addPage();
         yPosition = height - margin;
@@ -206,10 +231,28 @@ export async function POST(request: NextRequest) {
       const words = line.split(' ');
       let currentLine = '';
       
-      for (const word of words) {
+      for (let wordIndex = 0; wordIndex < words.length; wordIndex++) {
+        const word = words[wordIndex];
+        
+        // DEBUG: Check each word for issues
+        for (let i = 0; i < word.length; i++) {
+          const code = word.charCodeAt(i);
+          if (code > 255) {
+            console.error(`Word ${wordIndex} has problematic char at index ${i}: '${word[i]}' (${code})`);
+          }
+        }
+        
         // Extra sanitization right before use
         const cleanWord = word.split('').map(c => c.charCodeAt(0) > 255 ? '?' : c).join('');
         const testLine = currentLine + (currentLine ? ' ' : '') + cleanWord;
+        
+        // DEBUG: Check testLine before font operations
+        for (let i = 0; i < testLine.length; i++) {
+          const code = testLine.charCodeAt(i);
+          if (code > 255) {
+            console.error(`TestLine has problematic char at index ${i}: '${testLine[i]}' (${code})`);
+          }
+        }
         
         try {
           const textWidth = font.widthOfTextAtSize(testLine, fontSize);
