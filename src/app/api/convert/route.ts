@@ -41,6 +41,39 @@ export async function POST(request: NextRequest) {
     
     let yPosition = height - margin;
     
+    // NUCLEAR OPTION: Only allow basic ASCII characters (32-126)
+    const nuclearSanitize = (text: string): string => {
+      console.log('NUCLEAR sanitization - only ASCII 32-126 allowed');
+      return text
+        .split('')
+        .map(char => {
+          const code = char.charCodeAt(0);
+          if (code >= 32 && code <= 126) {
+            return char; // Keep basic ASCII
+          }
+          // Replace everything else with ASCII equivalents
+          switch (char) {
+            case 'İ': return 'I';
+            case 'ı': return 'i';
+            case 'Ş': case 'ş': return 's';
+            case 'Ğ': case 'ğ': return 'g';
+            case 'Ü': case 'ü': return 'u';
+            case 'Ö': case 'ö': return 'o';
+            case 'Ç': case 'ç': return 'c';
+            case 'Ə': case 'ə': return 'e';
+            case '\n': case '\r': return char; // Keep newlines
+            case '\t': return ' '; // Convert tabs to spaces
+            default: 
+              if (code <= 31) return ' '; // Control chars to space
+              return '?'; // Everything else to ?
+          }
+        })
+        .join('')
+        .replace(/\?+/g, '?') // Clean up multiple ?
+        .replace(/  +/g, ' ') // Clean up multiple spaces
+        .trim();
+    };
+
     // Function to sanitize text for Helvetica font - must ensure all chars are <= 255
     const sanitizeText = (text: string): string => {
       console.log('Input text length:', text.length);
@@ -183,7 +216,8 @@ export async function POST(request: NextRequest) {
       return result;
     };
     
-    const sanitizedText = sanitizeText(text);
+    // Use nuclear sanitization for now to eliminate the 775 error
+    const sanitizedText = nuclearSanitize(text);
     
     // EXTRA DEBUG: Check the sanitized text for any remaining issues
     console.log('Checking sanitized text for issues...');
@@ -304,12 +338,32 @@ export async function POST(request: NextRequest) {
 
     const pdfBytes = await pdfDoc.save();
     
-    return new NextResponse(Buffer.from(pdfBytes), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${file.name.replace(/\.(docx?|doc)$/i, '.pdf')}"`,
-      },
+    // Handle PDF bytes safely - convert to base64 to avoid all binary issues
+    console.log('PDF bytes type:', typeof pdfBytes, 'length:', pdfBytes.length);
+    
+    // Convert PDF bytes to base64 string to avoid binary handling issues
+    let base64String = '';
+    const standardBytes = new Uint8Array(pdfBytes);
+    
+    // Convert to base64 manually to avoid any encoding issues
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    for (let i = 0; i < standardBytes.length; i += 3) {
+      const a = standardBytes[i];
+      const b = standardBytes[i + 1] || 0;
+      const c = standardBytes[i + 2] || 0;
+      
+      const bitmap = (a << 16) | (b << 8) | c;
+      
+      base64String += chars.charAt((bitmap >> 18) & 63);
+      base64String += chars.charAt((bitmap >> 12) & 63);
+      base64String += i + 1 < standardBytes.length ? chars.charAt((bitmap >> 6) & 63) : '=';
+      base64String += i + 2 < standardBytes.length ? chars.charAt(bitmap & 63) : '=';
+    }
+    
+    return NextResponse.json({
+      success: true,
+      pdf: base64String,
+      filename: file.name.replace(/\.(docx?|doc)$/i, '.pdf')
     });
   } catch (error) {
     console.error('Conversion error:', error);
