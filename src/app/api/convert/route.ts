@@ -36,26 +36,62 @@ export async function POST(request: NextRequest) {
     // Function to sanitize text for Helvetica font
     const sanitizeText = (text: string): string => {
       return text
-        .replace(/İ/g, 'I')  // Turkish capital I with dot
-        .replace(/ı/g, 'i')  // Turkish lowercase i without dot
-        .replace(/Ş/g, 'S')  // Turkish S with cedilla
-        .replace(/ş/g, 's')  // Turkish s with cedilla
-        .replace(/Ğ/g, 'G')  // Turkish G with breve
-        .replace(/ğ/g, 'g')  // Turkish g with breve
-        .replace(/Ü/g, 'U')  // Turkish U with diaeresis
-        .replace(/ü/g, 'u')  // Turkish u with diaeresis
-        .replace(/Ö/g, 'O')  // Turkish O with diaeresis
-        .replace(/ö/g, 'o')  // Turkish o with diaeresis
-        .replace(/Ç/g, 'C')  // Turkish C with cedilla
-        .replace(/ç/g, 'c')  // Turkish c with cedilla
-        // Replace other common problematic Unicode characters
-        .replace(/[""]/g, '"')  // Smart quotes
-        .replace(/['']/g, "'")  // Smart apostrophes
-        .replace(/[—–]/g, '-')  // Em dash and en dash
-        .replace(/[…]/g, '...')  // Ellipsis
-        .replace(/[™®©]/g, '')  // Trademark, registered, copyright symbols
-        // Remove any other characters that can't be encoded
-        .replace(/[^\x00-\x7F\u00A0-\u00FF]/g, '?');
+        // Turkish characters
+        .replace(/İ/g, 'I').replace(/ı/g, 'i')
+        .replace(/Ş/g, 'S').replace(/ş/g, 's')
+        .replace(/Ğ/g, 'G').replace(/ğ/g, 'g')
+        .replace(/Ü/g, 'U').replace(/ü/g, 'u')
+        .replace(/Ö/g, 'O').replace(/ö/g, 'o')
+        .replace(/Ç/g, 'C').replace(/ç/g, 'c')
+        // Azerbaijani characters
+        .replace(/Ə/g, 'E').replace(/ə/g, 'e')
+        // Smart quotes and typography
+        .replace(/[""„‚]/g, '"')
+        .replace(/[''‚']/g, "'")
+        .replace(/[—–−]/g, '-')
+        .replace(/[…]/g, '...')
+        // Currency and symbols
+        .replace(/[€₺£¥¢]/g, '$')
+        .replace(/[™®©]/g, '')
+        // Mathematical symbols
+        .replace(/[×]/g, 'x')
+        .replace(/[÷]/g, '/')
+        .replace(/[±]/g, '+/-')
+        .replace(/[≤]/g, '<=')
+        .replace(/[≥]/g, '>=')
+        .replace(/[≠]/g, '!=')
+        // Common accented characters
+        .replace(/[ÀÁÂÃÄÅ]/g, 'A').replace(/[àáâãäå]/g, 'a')
+        .replace(/[ÈÉÊË]/g, 'E').replace(/[èéêë]/g, 'e')
+        .replace(/[ÌÍÎÏ]/g, 'I').replace(/[ìíîï]/g, 'i')
+        .replace(/[ÒÓÔÕÖ]/g, 'O').replace(/[òóôõö]/g, 'o')
+        .replace(/[ÙÚÛÜ]/g, 'U').replace(/[ùúûü]/g, 'u')
+        .replace(/[ÝŸ]/g, 'Y').replace(/[ýÿ]/g, 'y')
+        .replace(/[Ñ]/g, 'N').replace(/[ñ]/g, 'n')
+        .replace(/[Ç]/g, 'C').replace(/[ç]/g, 'c')
+        // Germanic characters
+        .replace(/[ß]/g, 'ss')
+        .replace(/[Æ]/g, 'AE').replace(/[æ]/g, 'ae')
+        .replace(/[Ø]/g, 'O').replace(/[ø]/g, 'o')
+        // Slavic characters
+        .replace(/[АÁBCČDÉFGHÍJKLMNÓPQRSŠTÚVWXYŽЗ]/g, function(char) {
+          const map: {[key: string]: string} = {
+            'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'E',
+            'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
+            'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
+            'Ф': 'F', 'Х': 'H', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Sch',
+            'Ъ': '', 'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya'
+          };
+          return map[char] || char;
+        })
+        // Final cleanup: remove any character with code > 255
+        .split('')
+        .map(char => char.charCodeAt(0) > 255 ? '?' : char)
+        .join('')
+        // Clean up multiple spaces and question marks
+        .replace(/\?+/g, '?')
+        .replace(/  +/g, ' ')
+        .trim();
     };
     
     const lines = sanitizeText(text).split('\n');
