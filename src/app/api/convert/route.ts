@@ -37,6 +37,13 @@ export async function POST(request: NextRequest) {
     const sanitizeText = (text: string): string => {
       console.log('Input text length:', text.length);
       
+      // DEBUG: Check original text around index 23
+      console.log('Original text around index 23:');
+      for (let i = 15; i < 35 && i < text.length; i++) {
+        const code = text.charCodeAt(i);
+        console.log(`Original index ${i}: '${text[i]}' (${code})`);
+      }
+      
       // First, log ALL problematic characters for debugging
       const problematicChars = [];
       for (let i = 0; i < text.length; i++) {
@@ -166,11 +173,26 @@ export async function POST(request: NextRequest) {
     
     // EXTRA DEBUG: Check the sanitized text for any remaining issues
     console.log('Checking sanitized text for issues...');
-    for (let i = 0; i < Math.min(100, sanitizedText.length); i++) {
+    const foundIssues = [];
+    for (let i = 0; i < sanitizedText.length; i++) {
       const code = sanitizedText.charCodeAt(i);
       if (code > 255) {
-        console.error(`STILL PROBLEMATIC at index ${i}: ${sanitizedText[i]} (${code})`);
+        foundIssues.push({ char: sanitizedText[i], code, index: i });
       }
+    }
+    
+    if (foundIssues.length > 0) {
+      console.error('FOUND REMAINING ISSUES:', foundIssues.slice(0, 10));
+      console.error('Total remaining issues:', foundIssues.length);
+    } else {
+      console.log('No remaining issues found in sanitized text');
+    }
+    
+    // Look specifically around index 23 where the error occurs
+    console.log('Characters around index 23:');
+    for (let i = 15; i < 35 && i < sanitizedText.length; i++) {
+      const code = sanitizedText.charCodeAt(i);
+      console.log(`Index ${i}: '${sanitizedText[i]}' (${code})`);
     }
     
     const lines = sanitizedText.split('\n');
