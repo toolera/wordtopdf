@@ -35,7 +35,9 @@ export async function POST(request: NextRequest) {
     
     // Function to sanitize text for Helvetica font - must ensure all chars are <= 255
     const sanitizeText = (text: string): string => {
-      // First, log problematic characters for debugging
+      console.log('Input text length:', text.length);
+      
+      // First, log ALL problematic characters for debugging
       const problematicChars = [];
       for (let i = 0; i < text.length; i++) {
         const charCode = text.charCodeAt(i);
@@ -44,7 +46,8 @@ export async function POST(request: NextRequest) {
         }
       }
       if (problematicChars.length > 0) {
-        console.log('Found problematic characters:', problematicChars.slice(0, 10)); // Log first 10
+        console.log('Found problematic characters:', problematicChars.slice(0, 20)); // Log first 20
+        console.log('Total problematic characters:', problematicChars.length);
       }
 
       // BRUTE FORCE: Convert every character individually to ensure no >255 chars pass
@@ -128,13 +131,33 @@ export async function POST(request: NextRequest) {
         .replace(/  +/g, ' ')
         .trim();
 
-      // Final verification - this should never happen but just in case
+      // Final verification and logging
+      console.log('Result length after processing:', result.length);
+      let finalProblems = 0;
       for (let i = 0; i < result.length; i++) {
-        if (result.charCodeAt(i) > 255) {
-          console.warn(`Character still > 255 at index ${i}: ${result[i]} (${result.charCodeAt(i)})`);
+        const code = result.charCodeAt(i);
+        if (code > 255) {
+          console.warn(`Character still > 255 at index ${i}: ${result[i]} (${code})`);
           result = result.substring(0, i) + '?' + result.substring(i + 1);
+          finalProblems++;
         }
       }
+      
+      if (finalProblems > 0) {
+        console.log('Fixed', finalProblems, 'remaining problematic characters');
+      }
+      
+      console.log('Final result length:', result.length);
+      
+      // EXTRA SAFETY: Convert to byte array and back to ensure compatibility
+      const bytes = new Uint8Array(result.length);
+      for (let i = 0; i < result.length; i++) {
+        const code = result.charCodeAt(i);
+        bytes[i] = code > 255 ? 63 : code; // 63 is ASCII '?'
+      }
+      
+      result = String.fromCharCode(...bytes);
+      console.log('Final sanitized text length:', result.length);
 
       return result;
     };
